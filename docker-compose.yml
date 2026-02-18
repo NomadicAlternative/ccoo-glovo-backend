@@ -15,5 +15,19 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "mysql://root:example@db:3306/ccoo_glovo"
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/usr/src/app
+    command: npm run dev
+
 volumes:
   db_data:
