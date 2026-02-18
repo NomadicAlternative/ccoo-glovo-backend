@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "prisma": "prisma"
+    "prisma": "prisma",
+    "prisma:generate": "prisma generate",
+    "db:push": "prisma db push --accept-data-loss=false",
+    "migrate:dev": "prisma migrate dev",
+    "seed:admin": "node scripts/seed-admin.js",
+    "test": "echo \"No tests yet\" && exit 0"
   },
   "dependencies": {
     "@prisma/client": "^5.13.0",
