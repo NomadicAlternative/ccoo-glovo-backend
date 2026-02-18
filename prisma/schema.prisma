@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model casos {
+  id             Int                  @id @default(autoincrement())
+  trabajador_id  Int?
+  publicTokenId  String?              @db.VarChar(64)
+  publicTokenHash String?
+  publicTokenExpires DateTime?
+  tipo_problema  casos_tipo_problema?
+  descripcion    String               @db.Text
+  estado         casos_estado?        @default(pendiente)
+  fecha_creacion DateTime?            @default(now()) @db.Timestamp(0)
+  trabajadores   trabajadores?        @relation(fields: [trabajador_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "casos_ibfk_1")
+
+  attachments attachments[]
+
+  @@index([trabajador_id], map: "trabajador_id")
+}
+
+model trabajadores {
+  id             Int       @id @default(autoincrement())
+  nombre         String    @db.VarChar(100)
+  email          String    @db.VarChar(150)
+  telefono       String?   @db.VarChar(20)
+  dni            String?   @db.VarChar(20)
+  fecha_creacion DateTime? @default(now()) @db.Timestamp(0)
+  casos          casos[]
+  worker_account worker_accounts?
+}
+
+model worker_accounts {
+  id            Int      @id @default(autoincrement())
+  trabajadorId  Int?     @unique
+  email         String   @unique @db.VarChar(150)
+  passwordHash  String
+  createdAt     DateTime @default(now()) @db.Timestamp(0)
+
+  trabajador    trabajadores? @relation(fields: [trabajadorId], references: [id])
+}
+
+model attachments {
+  id        Int      @id @default(autoincrement())
+  filename  String
+  url       String
+  mimeType  String
+  size      Int
+  caso_id   Int
+  caso      casos    @relation(fields: [caso_id], references: [id])
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([caso_id], map: "caso_id")
+}
+
+enum casos_tipo_problema {
+  despido
+  sancion
+  vacaciones
+  impago
+  otro
+}
+
+enum casos_estado {
+  pendiente
+  en_revision
+  cerrado
+}
+
+enum Role {
+  REPRESENTANTE
+  ADMIN
+}
+
+model users {
+  id            Int              @id @default(autoincrement())
+  email         String           @unique @db.VarChar(150)
+  passwordHash  String
+  role          Role             @default(REPRESENTANTE)
+  createdAt     DateTime         @default(now()) @db.Timestamp(0)
+  refreshTokens refresh_tokens[]
+}
+
+model refresh_tokens {
+  id        Int       @id @default(autoincrement())
+  tokenId   String    @unique
+  tokenHash String
+  userId    Int
+  expiresAt DateTime?
+  revoked   Boolean   @default(false)
+  createdAt DateTime  @default(now()) @db.Timestamp(0)
+  user      users     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "refresh_user_idx")
+}
