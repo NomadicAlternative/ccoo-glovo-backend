@@ -48,6 +48,7 @@ model worker_accounts {
 model attachments {
   id        Int      @id @default(autoincrement())
   filename  String
+  storedFilename String?
   url       String
   mimeType  String
   size      Int
@@ -84,6 +85,7 @@ model users {
   role          Role             @default(REPRESENTANTE)
   createdAt     DateTime         @default(now()) @db.Timestamp(0)
   refreshTokens refresh_tokens[]
+  tokenAuditLogs token_audit_logs[]
 }
 
 model refresh_tokens {
@@ -97,4 +99,15 @@ model refresh_tokens {
   user      users     @relation(fields: [userId], references: [id])
 
   @@index([userId], map: "refresh_user_idx")
+}
+
+model token_audit_logs {
+  id          Int      @id @default(autoincrement())
+  tokenId     String
+  action      String
+  adminUserId Int
+  note        String?
+  createdAt   DateTime @default(now()) @db.Timestamp(0)
+
+  adminUser   users    @relation(fields: [adminUserId], references: [id])
 }

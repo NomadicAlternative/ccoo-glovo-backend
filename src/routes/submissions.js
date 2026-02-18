@@ -214,6 +214,7 @@ router.post('/:id/attachments', authMiddleware, requireRole(['REPRESENTANTE', 'A
     const att = await prisma.attachments.create({
       data: {
         filename: file.originalname,
+        storedFilename: file.filename,
         url: `/uploads/${file.filename}`,
         mimeType: file.mimetype,
         size: file.size,
@@ -221,11 +222,12 @@ router.post('/:id/attachments', authMiddleware, requireRole(['REPRESENTANTE', 'A
       }
     });
 
-    // Build API download URL and update record (so clients receive protected download path)
-    const downloadUrl = `/api/attachments/${att.id}/download`;
-    await prisma.attachments.update({ where: { id: att.id }, data: { url: downloadUrl } });
+  // Build API download URL and return it in the response.
+  // NOTE: we intentionally DO NOT overwrite the stored `url` field in DB
+  // because it contains the on-disk path (`/uploads/<storedFilename>`).
+  const downloadUrl = `/api/attachments/${att.id}/download`;
 
-    res.status(201).json({ id: att.id, url: downloadUrl });
+  res.status(201).json({ id: att.id, url: downloadUrl });
   } catch (err) {
     console.error(err);
     // multer fileFilter throws an Error with message 'Invalid file type' — map to 400

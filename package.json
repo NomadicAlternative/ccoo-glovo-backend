@@ -11,6 +11,7 @@
     "db:push": "prisma db push --accept-data-loss=false",
     "migrate:dev": "prisma migrate dev",
     "seed:admin": "node scripts/seed-admin.js",
+    "cleanup:tokens": "node scripts/cleanup-refresh-tokens.js",
     "test": "jest --runInBand"
   },
   "dependencies": {

@@ -1,0 +1,15 @@
+/* Minimal styles for frontend scaffold */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  background: #f7fafc;
+  color: #111827;
+}
+
+a { color: #0366d6; }
+
+.container { max-width: 800px; margin: 0 auto; padding: 1rem; }
+
+/* Example utility class usage with Tailwind CDN: you can remove these after migrating to full build */
+.hero { padding: 1.5rem; background: #fff; border-radius: 0.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }

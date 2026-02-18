@@ -16,11 +16,11 @@ router.get('/:id/download', authMiddleware, requireRole(['REPRESENTANTE', 'ADMIN
     if (!att) return res.status(404).json({ error: 'Attachment not found' });
 
     // The file is stored in src/uploads/<filename>
-    const uploadsDir = path.join(__dirname, '..', 'uploads');
-    const storedFilename = att.url ? path.basename(att.url) : null;
-    if (!storedFilename) return res.status(500).json({ error: 'Attachment metadata invalid' });
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  const storedFilename = att.storedFilename || (att.url ? path.basename(att.url) : null);
+  if (!storedFilename) return res.status(500).json({ error: 'Attachment metadata invalid' });
 
-    const filePath = path.join(uploadsDir, storedFilename);
+  const filePath = path.join(uploadsDir, storedFilename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing on disk' });
 
     res.setHeader('Content-Type', att.mimeType || 'application/octet-stream');

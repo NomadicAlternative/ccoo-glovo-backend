@@ -8,22 +8,63 @@ Este repositorio contiene un scaffold inicial en JavaScript con Express y Prisma
 
 ## Qué hay en este scaffold
 
-- `src/index.js` – servidor Express minimal
-- `src/routes/submissions.js` – rutas REST básicas para submissions (POST/GET)
-- `prisma/schema.prisma` – esquema inicial para Prisma (Submission, Attachment, enums)
-- `docker-compose.yml` – servicio MySQL para desarrollo
-- `.env.example` – variables de entorno de ejemplo
-- `package.json` – scripts y dependencias recomendadas
 
----
 
 ## Arrancar localmente (pasos recomendados)
 
-1) Clona el repo y sitúate en la carpeta del proyecto.
 
 2) Copia el archivo de ejemplo de variables de entorno y ajústalo si es necesario:
 
 ```bash
+
+## Cleanup refresh tokens (maintenance)
+
+We provide a small maintenance script that deletes expired refresh tokens and old revoked tokens. You can run it manually or schedule it.
+
+- Run manually:
+
+```bash
+# from repo root
+npm run cleanup:tokens
+```
+
+- Schedule (recommended):
+
+1. Use the included GitHub Actions workflow `.github/workflows/cleanup-tokens.yml` which runs the cleanup daily (03:00 UTC). This workflow runs a MySQL service in CI and executes the cleanup against a temporary DB — it's intended as a convenience for test/CI environments. For production, run the script against your production database carefully.
+
+2. To run in production, add a cron job or a Kubernetes CronJob that runs the same command with DATABASE_URL and other env vars set securely. Example (Linux cron):
+
+```cron
+# run daily at 03:00
+0 3 * * * cd /path/to/repo && /usr/bin/env DATABASE_URL="mysql://user:pass@host:3306/dbname" /usr/bin/node scripts/cleanup-refresh-tokens.js >> /var/log/cleanup-tokens.log 2>&1
+```
+
+Notes:
+- Always ensure backups exist before running destructive cleanup jobs against production.
+- The GitHub Actions workflow is provided as an operational convenience; adapt it to your infra and secrets management (do NOT store production credentials in the repo).
+
+## Attachment storage details
+
+We store uploaded files under `src/uploads/` (development). Each `attachments` DB record contains the following relevant fields:
+
+- `filename`: original filename provided by the uploader.
+- `storedFilename`: the sanitized filename used on disk (unique prefix + original name). Use this to locate the file on disk.
+- `url`: legacy field that holds a storage path (e.g. `/uploads/<storedFilename>`). API responses return a protected download URL (`/api/attachments/<id>/download`).
+
+When moving to production, consider storing files in S3 and keeping only a reference (S3 key) in `storedFilename`.
+
+## Token retention policy (recommended)
+
+- Access tokens (JWTs): short lived. Configurable via `JWT_EXPIRES_IN` (e.g. `15m`). The special value `never` issues tokens without expiry — avoid in production.
+- Refresh tokens: opaque tokens stored hashed in `refresh_tokens` table. Recommended defaults:
+	- Expire refresh tokens after 30 days (configurable via `JWT_REFRESH_EXPIRES_IN`, e.g. `30d`).
+	- Revoke tokens on logout and rotate on refresh.
+	- Periodically clean expired tokens (we provide `scripts/cleanup-refresh-tokens.js`).
+
+Audit process:
+- Use the admin endpoint `GET /api/admin/refresh-tokens?status=expired|revoked|all` (ADMIN only) to review old tokens before deletion.
+- Keep backups and logs before mass deletions. The included cleanup script deletes expired tokens and revoked tokens older than 30 days by default.
+
 cp .env.example .env
 ```
 

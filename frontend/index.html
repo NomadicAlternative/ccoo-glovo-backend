@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CCOO Glovo - Frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Tailwind Play CDN for fast dev integration (no npm install required) -->
+    <script>
+      // Optional: customize Tailwind config before loading the CDN
+      window.tailwindConfig = {
+        theme: {
+          extend: {
+            colors: { brand: '#0366d6' }
+          }
+        }
+      }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

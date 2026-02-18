@@ -1,0 +1,56 @@
+name: Scheduled cleanup - refresh tokens
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # daily at 03:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: example
+          MYSQL_DATABASE: testdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=5s
+          --health-timeout=2s
+          --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for DB
+        run: |
+          echo "Waiting for MySQL..."
+          for i in {1..30}; do
+            mysql --host=127.0.0.1 -u root -pexample -e 'select 1' && break
+            sleep 1
+          done
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Push Prisma schema
+        run: npx prisma db push --accept-data-loss=false
+        env:
+          DATABASE_URL: mysql://root:example@127.0.0.1:3306/testdb
+
+      - name: Run cleanup script
+        run: npm run cleanup:tokens
+        env:
+          DATABASE_URL: mysql://root:example@127.0.0.1:3306/testdb
