@@ -16,10 +16,24 @@ router.get('/refresh-tokens', authMiddleware, requireRole(['ADMIN']), async (req
       where = { revoked: true };
     }
 
-    const tokens = await prisma.refresh_tokens.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200 });
+    const tokens = await prisma.refresh_tokens.findMany({ 
+      where, 
+      orderBy: { createdAt: 'desc' }, 
+      take: 200,
+      include: { user: { select: { email: true, name: true } } }
+    });
 
-    // Return lightweight info for audit
-    const safe = tokens.map(t => ({ id: t.id, tokenId: t.tokenId, userId: t.userId, revoked: t.revoked, expiresAt: t.expiresAt, createdAt: t.createdAt }));
+    // Return info including user email and name for display
+    const safe = tokens.map(t => ({ 
+      id: t.id, 
+      tokenId: t.tokenId, 
+      userId: t.userId, 
+      userEmail: t.user?.email || 'Usuario desconocido',
+      userName: t.user?.name || null,
+      revoked: t.revoked, 
+      expiresAt: t.expiresAt, 
+      createdAt: t.createdAt 
+    }));
     res.json({ tokens: safe });
   } catch (err) {
     console.error(err);
@@ -44,6 +58,64 @@ router.post('/refresh-tokens/:id/revoke', authMiddleware, requireRole(['ADMIN'])
     await prisma.token_audit_logs.create({ data: { tokenId: token.tokenId, action: 'revoked', adminUserId: req.user.id, note } });
 
     res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/admin/users - List all users
+router.get('/users', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const users = await prisma.users.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        _count: {
+          select: { refreshTokens: true }
+        }
+      }
+    });
+    res.json({ users });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/users/:id - Delete a user
+router.delete('/users/:id', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    // Prevent self-deletion
+    if (id === req.user.id) {
+      return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta' });
+    }
+
+    const user = await prisma.users.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Prevent deletion of ADMIN users
+    if (user.role === 'ADMIN') {
+      return res.status(400).json({ error: 'No se puede eliminar un usuario administrador' });
+    }
+
+    // Delete associated refresh tokens first
+    await prisma.refresh_tokens.deleteMany({ where: { userId: id } });
+    
+    // Delete associated audit logs
+    await prisma.token_audit_logs.deleteMany({ where: { adminUserId: id } });
+
+    // Delete the user
+    await prisma.users.delete({ where: { id } });
+
+    res.json({ ok: true, message: 'Usuario eliminado correctamente' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

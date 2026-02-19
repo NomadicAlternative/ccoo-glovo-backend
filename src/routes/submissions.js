@@ -198,6 +198,67 @@ router.get('/:id', authMiddleware, requireRole(['REPRESENTANTE', 'ADMIN']), asyn
   }
 });
 
+// Update case status - protected to REPRESENTANTE and ADMIN
+router.patch('/:id', authMiddleware, requireRole(['REPRESENTANTE', 'ADMIN']), async (req, res) => {
+  try {
+    const casoId = parseInt(req.params.id, 10);
+    if (isNaN(casoId)) return res.status(400).json({ error: 'Invalid caso id' });
+
+    const { estado } = req.body;
+    // Match the casos_estado enum values in Prisma schema
+    const validEstados = ['pendiente', 'en_revision', 'en_proceso', 'resuelto', 'cerrado'];
+    if (!estado || !validEstados.includes(estado)) {
+      return res.status(400).json({ error: 'Invalid estado. Valid values: pendiente, en_revision, en_proceso, resuelto, cerrado' });
+    }
+
+    const caso = await prisma.casos.findUnique({ where: { id: casoId } });
+    if (!caso) return res.status(404).json({ error: 'Caso not found' });
+
+    const updated = await prisma.casos.update({
+      where: { id: casoId },
+      data: { estado }
+    });
+
+    res.json({ caso: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete a case and its attachments - protected to ADMIN only
+router.delete('/:id', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const casoId = parseInt(req.params.id, 10);
+    if (isNaN(casoId)) return res.status(400).json({ error: 'Invalid caso id' });
+
+    const caso = await prisma.casos.findUnique({
+      where: { id: casoId },
+      include: { attachments: true }
+    });
+    if (!caso) return res.status(404).json({ error: 'Caso not found' });
+
+    // Delete attachment files from disk
+    for (const att of caso.attachments) {
+      const filePath = path.join(uploadDir, att.storedFilename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    // Delete attachments from DB
+    await prisma.attachments.deleteMany({ where: { caso_id: casoId } });
+
+    // Delete the case
+    await prisma.casos.delete({ where: { id: casoId } });
+
+    res.json({ message: 'Caso eliminado correctamente', deletedId: casoId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Upload an attachment for a given case (field name: file) - protected to REPRESENTANTE and ADMIN
 router.post('/:id/attachments', authMiddleware, requireRole(['REPRESENTANTE', 'ADMIN']), upload.single('file'), async (req, res) => {
   try {

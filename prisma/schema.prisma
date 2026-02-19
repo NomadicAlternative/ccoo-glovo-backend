@@ -70,6 +70,8 @@ enum casos_tipo_problema {
 enum casos_estado {
   pendiente
   en_revision
+  en_proceso
+  resuelto
   cerrado
 }
 
@@ -81,6 +83,7 @@ enum Role {
 model users {
   id            Int              @id @default(autoincrement())
   email         String           @unique @db.VarChar(150)
+  name          String?          @db.VarChar(100)
   passwordHash  String
   role          Role             @default(REPRESENTANTE)
   createdAt     DateTime         @default(now()) @db.Timestamp(0)
