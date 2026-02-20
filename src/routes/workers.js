@@ -26,7 +26,7 @@ router.post('/register', async (req, res) => {
 
     const secret = process.env.JWT_SECRET;
     if (!secret) return res.status(500).json({ error: 'JWT secret not configured' });
-    const expiresIn = process.env.WORKER_JWT_EXPIRES_IN || '7d';
+    const expiresIn = process.env.WORKER_JWT_EXPIRES_IN || '5m'; // 5 minutes for worker sessions
     const token = jwt.sign({ sub: account.id, role: 'WORKER', type: 'worker' }, secret, { expiresIn });
 
     res.status(201).json({ token });
@@ -49,7 +49,7 @@ router.post('/login', async (req, res) => {
 
     const secret = process.env.JWT_SECRET;
     if (!secret) return res.status(500).json({ error: 'JWT secret not configured' });
-    const expiresIn = process.env.WORKER_JWT_EXPIRES_IN || '7d';
+    const expiresIn = process.env.WORKER_JWT_EXPIRES_IN || '5m'; // 5 minutes for worker sessions
     const token = jwt.sign({ sub: account.id, role: 'WORKER', type: 'worker' }, secret, { expiresIn });
 
     res.json({ token });
@@ -59,24 +59,58 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Get current worker (requires Bearer token issued to worker)
-router.get('/me', async (req, res) => {
+// Middleware to verify worker token
+const verifyWorkerToken = async (req, res, next) => {
   try {
     const auth = req.headers.authorization;
     if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
     const token = auth.split(' ')[1];
-    try {
-      const secret = process.env.JWT_SECRET;
-      const payload = jwt.verify(token, secret);
-      if (payload.type !== 'worker') return res.status(403).json({ error: 'Not a worker token' });
+    
+    const secret = process.env.JWT_SECRET;
+    const payload = jwt.verify(token, secret);
+    if (payload.type !== 'worker') return res.status(403).json({ error: 'Not a worker token' });
+    
+    const account = await prisma.worker_accounts.findUnique({ where: { id: payload.sub }, include: { trabajador: true } });
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+    
+    req.workerAccount = account;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
-      const account = await prisma.worker_accounts.findUnique({ where: { id: payload.sub }, include: { trabajador: true } });
-      if (!account) return res.status(404).json({ error: 'Account not found' });
+// Get current worker (requires Bearer token issued to worker)
+router.get('/me', verifyWorkerToken, async (req, res) => {
+  try {
+    const account = req.workerAccount;
+    res.json({ id: account.id, email: account.email, trabajador: account.trabajador });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-      res.json({ id: account.id, email: account.email, trabajador: account.trabajador });
-    } catch (err) {
-      return res.status(401).json({ error: 'Invalid token' });
+// Get worker's cases (requires Bearer token issued to worker)
+router.get('/my-cases', verifyWorkerToken, async (req, res) => {
+  try {
+    const account = req.workerAccount;
+    
+    if (!account.trabajadorId) {
+      return res.json({ cases: [] });
     }
+
+    const cases = await prisma.casos.findMany({
+      where: { trabajador_id: account.trabajadorId },
+      orderBy: { fecha_creacion: 'desc' },
+      include: {
+        attachments: {
+          select: { id: true, filename: true }
+        }
+      }
+    });
+
+    res.json({ cases });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

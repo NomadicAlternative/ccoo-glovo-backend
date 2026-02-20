@@ -7,14 +7,22 @@ import AdminTokens from './pages/AdminTokens'
 import AdminUsers from './pages/AdminUsers'
 import AdminCases from './pages/AdminCases'
 import AdminCaseDetail from './pages/AdminCaseDetail'
+import WorkerLogin from './pages/WorkerLogin'
+import WorkerCases from './pages/WorkerCases'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { WorkerAuthProvider, useWorkerAuth } from './context/WorkerAuthContext'
 
 function Navigation() {
   const { accessToken, setAccessToken } = useAuth()
+  const { workerToken, setWorkerToken, workerProfile } = useWorkerAuth()
   const location = useLocation()
 
   function handleLogout() {
     setAccessToken(null)
+  }
+
+  function handleWorkerLogout() {
+    setWorkerToken(null)
   }
 
   return (
@@ -81,17 +89,48 @@ function Navigation() {
                 🚪 <span className="hidden sm:inline">Cerrar sesión</span><span className="sm:hidden">Salir</span>
               </button>
             </>
+          ) : workerToken ? (
+            <>
+              <Link
+                to="/mis-solicitudes"
+                className={`px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
+                  location.pathname === '/mis-solicitudes' 
+                    ? 'bg-green-600 text-white shadow-md' 
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                📋 Mis Solicitudes
+              </Link>
+              <button
+                onClick={handleWorkerLogout}
+                className="px-3 py-2 rounded-lg text-xs md:text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
+              >
+                🚪 <span className="hidden sm:inline">Cerrar sesión</span><span className="sm:hidden">Salir</span>
+              </button>
+            </>
           ) : (
-            <Link
-              to="/login"
-              className={`px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
-                location.pathname === '/login' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`}
-            >
-              🔐 <span className="hidden sm:inline">Acceso </span>Admin
-            </Link>
+            <>
+              <Link
+                to="/trabajador/login"
+                className={`px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
+                  location.pathname === '/trabajador/login' 
+                    ? 'bg-green-600 text-white shadow-md' 
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                👷 <span className="hidden sm:inline">Acceso </span>Trabajador
+              </Link>
+              <Link
+                to="/login"
+                className={`px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
+                  location.pathname === '/login' 
+                    ? 'bg-blue-600 text-white shadow-md' 
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                🔐 <span className="hidden sm:inline">Acceso </span>Admin
+              </Link>
+            </>
           )}
         </nav>
       </div>
@@ -127,6 +166,8 @@ function AppContent() {
             <Route path="/" element={<Submit />} />
             <Route path="/case/:token" element={<PublicView />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/trabajador/login" element={<WorkerLogin />} />
+            <Route path="/mis-solicitudes" element={<WorkerCases />} />
             <Route path="/admin/casos" element={<AdminCases />} />
             <Route path="/admin/casos/:id" element={<AdminCaseDetail />} />
             <Route path="/admin/tokens" element={<AdminTokens />} />
@@ -142,9 +183,11 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <WorkerAuthProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </WorkerAuthProvider>
     </AuthProvider>
   )
 }

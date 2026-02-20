@@ -55,6 +55,10 @@ const submissionValidators = [
     .trim()
     .isLength({ max: 20 }).withMessage('Phone max length is 20')
     .customSanitizer(v => v ? v.replace(/\D/g, '') : v),
+  body('password')
+    .trim()
+    .isLength({ min: 5 }).withMessage('Password must be at least 5 characters')
+    .matches(/\d/).withMessage('Password must contain at least one number'),
   body('category')
     .trim()
     .customSanitizer(v => v ? v.toUpperCase() : v)
@@ -76,14 +80,30 @@ router.post('/', submissionValidators, async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
   try {
-    const { name, email, phone, company, category, subject, message } = req.body;
+    const { name, email, phone, company, category, subject, message, password } = req.body;
 
     const tipo_problema = categoryMap[category];
 
   // Find or create trabajador (email is not unique in existing schema, use findFirst)
   let trabajador = await prisma.trabajadores.findFirst({ where: { email } });
+  let isNewWorker = false;
     if (!trabajador) {
       trabajador = await prisma.trabajadores.create({ data: { nombre: name, email, telefono: phone } });
+      isNewWorker = true;
+    }
+
+    // Create worker account if it doesn't exist (use provided password)
+    let workerAccount = await prisma.worker_accounts.findFirst({ where: { email } });
+    if (!workerAccount) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      workerAccount = await prisma.worker_accounts.create({
+        data: {
+          trabajadorId: trabajador.id,
+          email,
+          passwordHash
+        }
+      });
+      isNewWorker = true;
     }
 
     const descripcion = `${subject} -- ${message}`;
@@ -108,7 +128,13 @@ router.post('/', submissionValidators, async (req, res) => {
     await prisma.casos.update({ where: { id: caso.id }, data: { publicTokenId: tokenId, publicTokenHash: tokenHash, publicTokenExpires: expiresAt } });
 
     // Return the public token in the response (in production this should be emailed)
-    res.status(201).json({ id: caso.id, createdAt: caso.fecha_creacion, publicToken });
+    res.status(201).json({ 
+      id: caso.id, 
+      createdAt: caso.fecha_creacion, 
+      publicToken,
+      isNewWorker,
+      credentials: isNewWorker ? { username: email, password: '••••••' } : null
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

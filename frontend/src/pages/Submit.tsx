@@ -15,6 +15,7 @@ export default function Submit() {
     name: '', 
     email: '', 
     phone: '', 
+    password: '',
     category: 'DESPIDO', 
     subject: '', 
     message: '' 
@@ -23,6 +24,8 @@ export default function Submit() {
   const [publicToken, setPublicToken] = useState<string | null>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Cerrar dropdown al hacer clic fuera
@@ -36,12 +39,34 @@ export default function Submit() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 5) {
+      return 'La contraseña debe tener al menos 5 caracteres'
+    }
+    if (!/\d/.test(password)) {
+      return 'La contraseña debe contener al menos un número'
+    }
+    return null
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate password
+    const pwError = validatePassword(form.password)
+    if (pwError) {
+      setPasswordError(pwError)
+      return
+    }
+    setPasswordError(null)
+    
     setStatus('sending')
     try {
       const res = await axios.post('/api/submissions', form)
       setPublicToken(res.data.publicToken)
+      if (res.data.isNewWorker) {
+        setCredentials({ username: form.email, password: form.password })
+      }
       setStatus('ok')
       setShowSuccessModal(true)
     } catch (err: any) {
@@ -50,10 +75,12 @@ export default function Submit() {
   }
 
   const resetForm = () => {
-    setForm({ name: '', email: '', phone: '', category: 'DESPIDO', subject: '', message: '' })
+    setForm({ name: '', email: '', phone: '', password: '', category: 'DESPIDO', subject: '', message: '' })
     setStatus('idle')
     setPublicToken(null)
+    setCredentials(null)
     setShowSuccessModal(false)
+    setPasswordError(null)
   }
 
   const selectedCategory = categorias.find(c => c.value === form.category)
@@ -111,7 +138,33 @@ export default function Submit() {
                 required
                 className="w-full px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white"
               />
+              <p className="text-xs text-gray-500 mt-1">📧 Este será tu usuario para acceder</p>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">
+              Contraseña *
+            </label>
+            <input 
+              type="password"
+              placeholder="Mínimo 5 caracteres con al menos 1 número"
+              value={form.password} 
+              onChange={e => {
+                setForm({ ...form, password: e.target.value })
+                if (passwordError) setPasswordError(null)
+              }} 
+              required
+              className={`w-full px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white ${
+                passwordError ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200'
+              }`}
+            />
+            {passwordError && (
+              <p className="text-xs text-red-500 mt-1">⚠️ {passwordError}</p>
+            )}
+            {!passwordError && (
+              <p className="text-xs text-gray-500 mt-1">🔒 Guarda esta contraseña para ver el estado de tus solicitudes</p>
+            )}
           </div>
 
           <div>
@@ -288,9 +341,35 @@ export default function Submit() {
           </h3>
 
           {/* Mensaje */}
-          <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6 whitespace-pre-line">
+          <p className="text-sm md:text-base text-gray-600 mb-4">
             Tu consulta ha sido recibida correctamente. Un representante la revisará pronto.
           </p>
+
+          {/* Credenciales si es nuevo usuario */}
+          {credentials && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">🔑</span>
+                <h4 className="font-semibold text-blue-800 text-sm">Tus credenciales de acceso</h4>
+              </div>
+              <p className="text-xs text-blue-700 mb-3">
+                Se ha creado una cuenta para que puedas seguir el estado de tus consultas. <strong>¡Guarda estos datos!</strong>
+              </p>
+              <div className="space-y-2 bg-white rounded-lg p-3 border border-blue-100">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">👤 Usuario:</span>
+                  <span className="font-mono font-medium text-gray-800">{credentials.username}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">🔒 Contraseña:</span>
+                  <span className="font-mono font-medium text-gray-800">La que elegiste</span>
+                </div>
+              </div>
+              <p className="text-xs text-blue-600 mt-3 text-center bg-blue-100 rounded-lg py-2">
+                � Accede en <strong>"👷 Acceso Trabajador"</strong> para ver tus solicitudes
+              </p>
+            </div>
+          )}
 
           {/* Botones */}
           <div className="flex flex-col gap-2 md:gap-3">

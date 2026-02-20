@@ -197,7 +197,7 @@ export default function AdminCases() {
       </div>
 
       {/* Filtros */}
-      <div className="glass rounded-xl p-4 mb-6 border border-gray-200">
+      <div className="glass rounded-xl p-4 mb-6 border border-gray-200 relative z-20 overflow-visible">
         <div className="flex flex-wrap gap-4 items-end">
           {/* Dropdown de estado */}
           <div className="min-w-[180px]">
@@ -306,14 +306,14 @@ export default function AdminCases() {
 
       {/* Lista de casos */}
       {casosFiltrados.length === 0 ? (
-        <div className="glass rounded-2xl p-8 text-center">
+        <div className="glass rounded-2xl p-8 text-center relative z-10">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">📭</span>
           </div>
           <p className="text-gray-600 font-medium">No hay solicitudes que mostrar con los filtros seleccionados.</p>
         </div>
       ) : (
-        <div className="space-y-3 md:space-y-4">
+        <div className="space-y-3 md:space-y-4 relative z-10">
           {casosFiltrados.map(caso => {
             const estadoInfo = estadoLabels[caso.estado] || { text: caso.estado, color: 'bg-gray-100' }
             const categoriaLabel = categoriaLabels[caso.tipo_problema] || caso.tipo_problema

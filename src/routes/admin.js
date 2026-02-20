@@ -122,4 +122,77 @@ router.delete('/users/:id', authMiddleware, requireRole(['ADMIN']), async (req, 
   }
 });
 
+// Get all registered workers (trabajadores with accounts)
+router.get('/workers', authMiddleware, requireRole(['ADMIN', 'LECTOR']), async (req, res) => {
+  try {
+    const workers = await prisma.worker_accounts.findMany({
+      include: {
+        trabajador: {
+          include: {
+            casos: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const workersData = workers.map(w => ({
+      id: w.id,
+      email: w.email,
+      nombre: w.trabajador?.nombre || 'Sin nombre',
+      telefono: w.trabajador?.telefono || 'N/A',
+      createdAt: w.createdAt,
+      casosCount: w.trabajador?.casos?.length || 0
+    }));
+
+    res.json(workersData);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete a worker account and all related data
+router.delete('/workers/:id', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+    const worker = await prisma.worker_accounts.findUnique({ 
+      where: { id },
+      include: { trabajador: true }
+    });
+    if (!worker) return res.status(404).json({ error: 'Trabajador no encontrado' });
+
+    const trabajadorId = worker.trabajadorId;
+
+    // Delete in correct order to avoid foreign key constraints
+    // 1. Delete attachments for all cases of this worker
+    if (trabajadorId) {
+      const casos = await prisma.casos.findMany({ where: { trabajador_id: trabajadorId } });
+      const casoIds = casos.map(c => c.id);
+      
+      if (casoIds.length > 0) {
+        await prisma.attachments.deleteMany({ where: { caso_id: { in: casoIds } } });
+      }
+      
+      // 2. Delete all cases of this worker
+      await prisma.casos.deleteMany({ where: { trabajador_id: trabajadorId } });
+    }
+
+    // 3. Delete the worker account
+    await prisma.worker_accounts.delete({ where: { id } });
+
+    // 4. Delete the trabajador record
+    if (trabajadorId) {
+      await prisma.trabajadores.delete({ where: { id: trabajadorId } });
+    }
+
+    res.json({ ok: true, message: 'Usuario y todos sus datos eliminados correctamente' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
