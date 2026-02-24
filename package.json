@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build && npx prisma generate",
     "prisma": "prisma",
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push --accept-data-loss=false",

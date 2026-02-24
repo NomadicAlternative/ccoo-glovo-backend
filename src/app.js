@@ -41,6 +41,20 @@ app.use('/api/admin', adminRouter);
 
 // NOTE: uploaded files are NOT served publicly; use the protected attachments route.
 
-app.get('/', (req, res) => res.send('CCOO Glovo Backend API'));
+// En producción, servir el frontend compilado
+if (process.env.NODE_ENV === 'production') {
+  const frontendPath = path.join(__dirname, '../frontend/dist');
+  app.use(express.static(frontendPath));
+  
+  // Cualquier ruta que no sea /api, servir el index.html (para React Router)
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => res.send('CCOO Glovo Backend API'));
+}
 
 module.exports = app;
